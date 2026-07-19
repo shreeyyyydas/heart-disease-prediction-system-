@@ -108,17 +108,15 @@ if submitted:
         # 4. Handle Features alignment safely
         if hasattr(model, "feature_names_in_"):
             expected_cols = list(model.feature_names_in_)
-            
-            # Construct a DataFrame with exact column names expected by model
             features_df = pd.DataFrame(0, index=[0], columns=expected_cols)
             
-            # Fill numerical / basic binary values
+            # Fill numerical / binary values
             for col in ['age', 'sex', 'trestbps', 'chol', 'fbs', 'thalach', 'exang', 'oldpeak']:
                 for exp in expected_cols:
                     if exp.lower() == col:
                         features_df[exp] = input_dict[col]
 
-            # Fill categorical dummy variables if model used one-hot encoding
+            # Fill categorical dummy variables
             categorical_vals = {
                 'cp': input_dict['cp'],
                 'restecg': input_dict['restecg'],
@@ -129,25 +127,43 @@ if submitted:
 
             for cat, val in categorical_vals.items():
                 for exp in expected_cols:
-                    # Matches ca_0, ca_1, cp_0, slope_1, etc.
                     if exp.lower().startswith(f"{cat}_") or exp.lower().startswith(f"{cat}."):
                         suffix = exp.lower().replace(f"{cat}_", "").replace(f"{cat}.", "")
                         if suffix.isdigit() and int(suffix) == val:
                             features_df[exp] = 1
-
-            # Convert to NumPy array to bypass strict Scikit-Learn feature name validation checks
-            features_for_pred = features_df.values
         else:
-            # Fallback for models expecting simple array format
-            features_for_pred = np.array([list(input_dict.values())])
+            features_df = pd.DataFrame([input_dict])
 
-        # 5. Check and apply scaler if available
-        scaler_files = glob.glob("*scaler*.pkl") + glob.glob("*scaler*.joblib") + glob.glob("model/*scaler*.pkl")
+        # 5. Smart Scaler Handling: Checks how many features the scaler actually expects
+        scaler_files = glob.glob("*scaler*.pkl") + glob.glob("*scaler*.joblib") + glob.glob("model/*scaler*.pkl") + glob.glob("model/*scaler*.joblib")
         if scaler_files:
             scaler = joblib.load(scaler_files[0])
-            features_for_pred = scaler.transform(features_for_pred)
+            scaler_n_in = getattr(scaler, "n_features_in_", None)
+            
+            if scaler_n_in == 5:
+                # Scale only the 5 main numerical columns: age, trestbps, chol, thalach, oldpeak
+                num_cols = ['age', 'trestbps', 'chol', 'thalach', 'oldpeak']
+                present_num_cols = [c for c in num_cols if c in features_df.columns or c.upper() in features_df.columns]
+                
+                # If column names differ in case, find matching columns
+                actual_num_cols = []
+                for nc in num_cols:
+                    for fc in features_df.columns:
+                        if nc == fc.lower():
+                            actual_num_cols.append(fc)
+                            break
+                            
+                if len(actual_num_cols) == 5:
+                    features_df[actual_num_cols] = scaler.transform(features_df[actual_num_cols])
+            elif scaler_n_in == features_df.shape[1]:
+                # Scaler expects all features (e.g., 27)
+                scaled_vals = scaler.transform(features_df.values)
+                features_df = pd.DataFrame(scaled_vals, columns=features_df.columns)
 
-        # 6. Predict
+        # 6. Convert to raw array to avoid feature name validation mismatch during predict
+        features_for_pred = features_df.values
+
+        # 7. Predict
         raw_pred = model.predict(features_for_pred)[0]
 
         if hasattr(model, "predict_proba"):
@@ -161,7 +177,7 @@ if submitted:
         else:
             proba = 0.85 if raw_pred == 1 else 0.15
 
-        # 7. Output result
+        # 8. Output result
         prediction = "Heart Disease" if raw_pred == 1 else "No Heart Disease"
 
         st.subheader("🧪 Prediction Result")
