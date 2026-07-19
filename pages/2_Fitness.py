@@ -52,17 +52,25 @@ if st.button("🔍 Check Fitness Status"):
     try:
         conn = sqlite3.connect("patients_data.db")
         cursor = conn.cursor()
-cursor.execute("""
-    CREATE TABLE IF NOT EXISTS fitness_patients (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        weight REAL,
-        height REAL,
-        activity_level TEXT,
-        goal TEXT
-    )
-""")
-conn.commit()
-        cursor = conn.cursor()
+        
+        # 1. Correctly indented and matching all columns from the form fields
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS fitness_patients (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                age INTEGER,
+                weight REAL,
+                height REAL,
+                exercise_days INTEGER,
+                sleep_hours INTEGER,
+                diet TEXT,
+                smoking TEXT,
+                alcohol TEXT,
+                prediction TEXT
+            )
+        """)
+        conn.commit()
+
+        # 2. Insert the records into the database smoothly
         cursor.execute("""
             INSERT INTO fitness_patients 
             (age, weight, height, exercise_days, sleep_hours, diet, smoking, alcohol, prediction)
@@ -70,6 +78,7 @@ conn.commit()
         """, (age, weight, height, exercise_days, sleep_hours, diet, smoking, alcohol, result_text))
         conn.commit()
         conn.close()
+        
         st.info("📁 Your data has been saved successfully.")
     except Exception as e:
-        st.warning(f"⚠️ Failed to save data: {e}")
+        st.warning(f"⚠️ Failed to save data: {e}") save data: {e}")
