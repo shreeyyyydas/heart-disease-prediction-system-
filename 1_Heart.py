@@ -60,7 +60,7 @@ with st.form("heart_form"):
 # On form submit
 if submitted:
     try:
-        # Map categorical inputs
+        # Map categorical inputs to integers
         mappings = {
             "cp": {"Typical Angina": 0, "Atypical Angina": 1, "Non-anginal Pain": 2, "Asymptomatic": 3},
             "restecg": {"Normal": 0, "ST-T abnormality": 1, "Left ventricular hypertrophy": 2},
@@ -106,39 +106,43 @@ if submitted:
         # 3. Load model
         model = joblib.load(model_file)
 
-        # 4. Format inputs into a pandas DataFrame
-        features = pd.DataFrame([input_dict])
+        # 4. Create base DataFrame
+        raw_df = pd.DataFrame([input_dict])
 
-        # 5. Smart feature name mapping (Fixes feature name unseen error)
+        # 5. One-Hot Encoding transformation
+        categorical_cols = ['cp', 'restecg', 'slope', 'ca', 'thal']
+        encoded_df = pd.get_dummies(raw_df, columns=categorical_cols, dtype=int)
+
+        # 6. Align columns strictly with what the model expects
         if hasattr(model, "feature_names_in_"):
             expected_cols = model.feature_names_in_
             
-            # Map column names regardless of case (e.g., 'cp' -> 'CP' or 'Cp')
+            # Match columns regardless of case
             col_map = {}
             for exp in expected_cols:
-                for cur in features.columns:
+                for cur in encoded_df.columns:
                     if exp.lower() == cur.lower():
                         col_map[cur] = exp
 
-            features = features.rename(columns=col_map)
+            encoded_df = encoded_df.rename(columns=col_map)
 
-            # Fill missing columns if model expects one-hot encoded variables
-            missing_cols = set(expected_cols) - set(features.columns)
-            for c in missing_cols:
-                features[c] = 0
+            # Fill missing dummy columns with 0
+            for c in expected_cols:
+                if c not in encoded_df.columns:
+                    encoded_df[c] = 0
 
-            # Reorder columns to match fit order strictly
-            features = features[expected_cols]
+            # Reorder columns to match exact fit order
+            features_for_pred = encoded_df[expected_cols]
+        else:
+            features_for_pred = encoded_df
 
-        # 6. Check for scaler
+        # 7. Check for scaler
         scaler_files = glob.glob("*scaler*.pkl") + glob.glob("*scaler*.joblib") + glob.glob("model/*scaler*.pkl")
         if scaler_files:
             scaler = joblib.load(scaler_files[0])
-            features_for_pred = scaler.transform(features)
-        else:
-            features_for_pred = features
+            features_for_pred = scaler.transform(features_for_pred)
 
-        # 7. Make prediction
+        # 8. Make prediction
         raw_pred = model.predict(features_for_pred)[0]
 
         if hasattr(model, "predict_proba"):
@@ -152,7 +156,7 @@ if submitted:
         else:
             proba = 0.85 if raw_pred == 1 else 0.15
 
-        # 8. Final result output
+        # 9. Output result
         prediction = "Heart Disease" if raw_pred == 1 else "No Heart Disease"
 
         st.subheader("🧪 Prediction Result")
