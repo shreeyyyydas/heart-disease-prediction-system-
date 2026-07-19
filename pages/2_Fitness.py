@@ -52,6 +52,17 @@ if st.button("🔍 Check Fitness Status"):
     try:
         conn = sqlite3.connect("patients_data.db")
         cursor = conn.cursor()
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS fitness_patients (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        weight REAL,
+        height REAL,
+        activity_level TEXT,
+        goal TEXT
+    )
+""")
+conn.commit()
+        cursor = conn.cursor()
         cursor.execute("""
             INSERT INTO fitness_patients 
             (age, weight, height, exercise_days, sleep_hours, diet, smoking, alcohol, prediction)
