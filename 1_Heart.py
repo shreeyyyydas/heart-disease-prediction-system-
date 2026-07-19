@@ -119,12 +119,24 @@ if submitted:
         # 6. Make prediction
         raw_pred = model.predict(features)[0]
 
+        # Debugging Output to pinpoint the issue
+        raw_classes = getattr(model, "classes_", "No classes attribute")
+        st.write(f"🔍 **Debug Info - Raw Prediction:** `{raw_pred}`")
+        st.write(f"🔍 **Debug Info - Model Classes:** `{raw_classes}`")
         if hasattr(model, "predict_proba"):
-            proba = float(model.predict_proba(features)[0][1]) # Class 1: Heart Disease
+            raw_probs = model.predict_proba(features)[0]
+            st.write(f"🔍 **Debug Info - Raw Probabilities:** `{raw_probs}`")
+
+        # Handle class mapping accurately
+        if hasattr(model, "predict_proba"):
+            # Check if class 1 is at index 1 or index 0
+            if list(raw_classes) == [1, 0]:
+                proba = float(raw_probs[0])
+            else:
+                proba = float(raw_probs[1])
         else:
             proba = 0.85 if raw_pred == 1 else 0.15
 
-        # 7. Final result output
         prediction = "Heart Disease" if raw_pred == 1 else "No Heart Disease"
 
         # Show confidence as progress bar
