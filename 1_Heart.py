@@ -82,33 +82,50 @@ if submitted:
         }
 
         # Send to FastAPI backend
-        # Load and run the model directly inside Streamlit (No API server needed!)
+# Smart Model Loader: Automatically detects your model files
         import joblib
         import numpy as np
+        import glob
 
-        # 1. Load the specific model chosen by the user
-        # (Make sure these filenames match the actual files in your GitHub repo!)
-        model_file = f"{selected_model}.pkl" 
+        # 1. Scan your directory for any model files (.pkl or .joblib)
+        available_files = glob.glob("*.pkl") + glob.glob("*.joblib") + glob.glob("model/*.pkl") + glob.glob("model/*.joblib")
+        
+        # 2. Match the selected model to whatever file you have in your folder
+        model_file = None
+        search_term = selected_model.lower().replace("_", "") # e.g., 'randomforest', 'logistic', 'svm'
+
+        for f in available_files:
+            if search_term in f.lower().replace("-", "").replace("_", ""):
+                model_file = f
+                break
+        
+        # Fallback: If no name matches, just pick the first available model file so it doesn't crash
+        if not model_file and available_files:
+            model_file = available_files[0]
+            
+        if not model_file:
+            raise FileNotFoundError("Could not find any .pkl or .joblib model files in your project folder.")
+
+        # 3. Load the detected model file
         model = joblib.load(model_file)
 
-        # 2. Convert input dictionary into the exact 2D array format the model expects
+        # 4. Convert input dictionary into the 2D array format the model expects
         features = np.array([list(input_dict.values())])
 
-        # 3. Generate predictions directly
+        # 5. Generate predictions directly
         raw_pred = model.predict(features)[0]
         
-        # 4. Handle probability safely (some models require predict_proba)
+        # 6. Handle probability safely (fallback if model doesn't support predict_proba)
         if hasattr(model, "predict_proba"):
-            proba = model.predict_proba(features)[0][1] # Probability of heart disease class
+            proba = model.predict_proba(features)[0][1]
         else:
-            # Fallback for models without direct probabilities
             proba = 0.85 if raw_pred == 1 else 0.15 
 
-        # 5. Format outputs to match the rest of your original code
+        # 7. Format outputs to match the rest of your original script
         prediction = "Heart Disease" if raw_pred == 1 else "No Heart Disease"
 
             # Show confidence as progress bar
-            st.subheader("🧪 Prediction Result")
+        st.subheader("🧪 Prediction Result")
 
             # Color-coded risk badge
             if proba >= 0.7:
