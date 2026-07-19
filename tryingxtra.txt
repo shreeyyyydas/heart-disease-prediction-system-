@@ -1,0 +1,35 @@
+#adding images in background
+import base64
+
+def get_base64(bin_file):
+    with open(bin_file, 'rb') as f:
+        data = f.read()
+    return base64.b64encode(data).decode()
+
+def add_bg_slideshow():
+    # Replace these paths with your actual local paths
+    img1 = get_base64(r"file:///C:/Users/OM/Pictures/Screenshots/Screenshot%20(665).png")
+    img2 = get_base64(r"file:///C:/Users/OM/Pictures/Screenshots/Screenshot%20(668).png")
+    img3 = get_base64(r"file:///C:/Users/OM/Pictures/Screenshots/Screenshot%20(663).png")
+
+    st.markdown(
+        f"""
+        <style>
+        .stApp {{
+            background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), 
+                        url("data:image/png;base64,{img1}");
+            background-size: cover;
+            animation: backgroundTransition 20s infinite;
+        }}
+
+        @keyframes backgroundTransition {{
+            0% {{ background-image: url("data:image/png;base64,{img1}"); }}
+            33% {{ background-image: url("data:image/png;base64,{img2}"); }}
+            66% {{ background-image: url("data:image/png;base64,{img3}"); }}
+            100% {{ background-image: url("data:image/png;base64,{img1}"); }}
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
