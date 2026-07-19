@@ -32,7 +32,15 @@ if st.session_state.get("admin_logged_in", False):
     st.success("Welcome Admin! Use the sections below to view data:")
 
     # Connect to SQLite database
+    # Connect to SQLite database
     conn = sqlite3.connect("patients_data.db")
+    cursor = conn.cursor()
+
+    # Create tables automatically if they don't exist yet so the app never crashes
+    cursor.execute("CREATE TABLE IF NOT EXISTS feedback (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, email TEXT, message TEXT)")
+    cursor.execute("CREATE TABLE IF NOT EXISTS heart_patients (id INTEGER PRIMARY KEY AUTOINCREMENT, age INTEGER, sex INTEGER, cp INTEGER, trestbps INTEGER, chol INTEGER, fbs INTEGER, restecg INTEGER, thalach INTEGER, exang INTEGER, oldpeak REAL, slope INTEGER, ca INTEGER, thal INTEGER, target INTEGER)")
+    cursor.execute("CREATE TABLE IF NOT EXISTS fitness_patients (id INTEGER PRIMARY KEY AUTOINCREMENT, weight REAL, height REAL, activity_level TEXT, goal TEXT)")
+    conn.commit()
 
     # === Feedback table ===
     st.subheader("📝 Feedback Submissions")
