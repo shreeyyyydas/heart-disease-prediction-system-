@@ -5,6 +5,9 @@ import streamlit as st
 import requests
 import matplotlib.pyplot as plt
 from fpdf import FPDF
+import joblib
+import numpy as np
+import glob
 
 # Page setup
 st.set_page_config(page_title="Heart Disease Prediction", layout="wide")
@@ -81,16 +84,10 @@ if submitted:
             'thal': mappings['thal'][thal]
         }
 
-        # Send to FastAPI backend
-# Smart Model Loader: Automatically detects your model files
-        import joblib
-        import numpy as np
-        import glob
-
-        # 1. Scan your directory for any model files (.pkl or .joblib)
+        # 1. Scan directory for matching model files (.pkl or .joblib)
         available_files = glob.glob("*.pkl") + glob.glob("*.joblib") + glob.glob("model/*.pkl") + glob.glob("model/*.joblib")
         
-        # 2. Match the selected model to whatever file you have in your folder
+        # 2. Match selected model to available files
         model_file = None
         search_term = selected_model.lower().replace("_", "") # e.g., 'randomforest', 'logistic', 'svm'
 
@@ -99,55 +96,54 @@ if submitted:
                 model_file = f
                 break
         
-        # Fallback: If no name matches, just pick the first available model file so it doesn't crash
+        # Fallback: pick first available model if explicit match fails
         if not model_file and available_files:
             model_file = available_files[0]
             
         if not model_file:
             raise FileNotFoundError("Could not find any .pkl or .joblib model files in your project folder.")
 
-        # 3. Load the detected model file
+        # 3. Load model
         model = joblib.load(model_file)
 
-       # 4. Convert input dictionary into the initial 2D array format
-        features = np.array([list(input_dict.values())])
+        # 4. Format inputs into a pandas DataFrame (preserves feature names for accuracy)
+        features = pd.DataFrame([input_dict])
 
-        # 5. Dynamic feature alignment for models expecting encoded features (like 27 inputs)
-        expected_features = model.n_features_in_
-        if features.shape[1] < expected_features:
-            # Pad the remaining features with 0s to match the training shape (e.g., 27)
-            padded_features = np.zeros((1, expected_features))
-            padded_features[0, :features.shape[1]] = features[0]
-            features = padded_features
+        # 5. Dynamic alignment if model expects encoded feature columns
+        if hasattr(model, "feature_names_in_"):
+            missing_cols = set(model.feature_names_in_) - set(features.columns)
+            for c in missing_cols:
+                features[c] = 0
+            features = features[model.feature_names_in_]
 
-        # 6. Generate predictions directly
+        # 6. Make prediction
         raw_pred = model.predict(features)[0]
-        
-        # 6. Handle probability safely (fallback if model doesn't support predict_proba)
-        if hasattr(model, "predict_proba"):
-            proba = model.predict_proba(features)[0][1]
-        else:
-            proba = 0.85 if raw_pred == 1 else 0.15 
 
-        # 7. Format outputs to match the rest of your original script
+        if hasattr(model, "predict_proba"):
+            proba = float(model.predict_proba(features)[0][1]) # Class 1: Heart Disease
+        else:
+            proba = 0.85 if raw_pred == 1 else 0.15
+
+        # 7. Final result output
         prediction = "Heart Disease" if raw_pred == 1 else "No Heart Disease"
 
-            # Show confidence as progress bar
+        # Show confidence as progress bar
         st.subheader("🧪 Prediction Result")
 
-            # Color-coded risk badge
+        # Color-coded risk badge
         if proba >= 0.7:
-                risk_color = "🔴 High Risk"
+            risk_color = "🔴 High Risk"
         elif proba >= 0.4:
-                risk_color = "🟠 Moderate Risk"
+            risk_color = "🟠 Moderate Risk"
         else:
-                risk_color = "🟢 Low Risk"
+            risk_color = "🟢 Low Risk"
 
         st.write(f"**Risk Level:** {risk_color}")
         st.progress(proba)
 
         st.info(f"🧠 Model Used: {model_option}")
-            # Show prediction
+        
+        # Show prediction
         if prediction == "Heart Disease":
             st.error(f"💔 Likely to HAVE heart disease. (Confidence: {proba*100:.2f}%)")
         else:
@@ -157,27 +153,27 @@ if submitted:
         st.markdown("---")
         st.subheader("ℹ️ About This Result")
         st.markdown("""
-            The prediction is based on the input parameters you provided.  
-            It uses a trained **machine learning model** to estimate your **likelihood of having heart disease**.  
-            Interpret the result with care, and consult a healthcare professional if needed.
-            """)
+        The prediction is based on the input parameters you provided.  
+        It uses a trained **machine learning model** to estimate your **likelihood of having heart disease**.  
+        Interpret the result with care, and consult a healthcare professional if needed.
+        """)
 
-            # Generate chart
+        # Generate chart
         def generate_chart(p):
-                fig, ax = plt.subplots(figsize=(5, 1))
-                ax.barh(["Risk"], [p * 100], color='red' if p > 0.7 else 'orange' if p > 0.4 else 'green')
-                ax.set_xlim(0, 100)
-                ax.set_xlabel("%")
-                ax.set_title("Risk Estimate")
-                for spine in ax.spines.values():
-                    spine.set_visible(False)
-                plt.tight_layout()
-                plt.savefig("risk_chart.png")
-                plt.close()
+            fig, ax = plt.subplots(figsize=(5, 1))
+            ax.barh(["Risk"], [p * 100], color='red' if p > 0.7 else 'orange' if p > 0.4 else 'green')
+            ax.set_xlim(0, 100)
+            ax.set_xlabel("%")
+            ax.set_title("Risk Estimate")
+            for spine in ax.spines.values():
+                spine.set_visible(False)
+            plt.tight_layout()
+            plt.savefig("risk_chart.png")
+            plt.close()
 
         generate_chart(proba)
 
-            # Generate PDF
+        # Generate PDF
         pdf = FPDF()
         pdf.add_page()
         pdf.set_font("Arial", 'B', 16)
@@ -199,12 +195,8 @@ if submitted:
         with open(filepath, "rb") as f:
             st.download_button("📄 Download PDF Report", f, file_name=filename, mime="application/pdf")
 
-        
-
-
     except Exception as e:
         st.error(f"Error: {e}")
 
-        
 if st.button("🗣️ Give Feedback"):
-            st.switch_page("pages/4_Feedback.py")
+    st.switch_page("pages/4_Feedback.py")
