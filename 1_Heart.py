@@ -128,11 +128,11 @@ if submitted:
         st.subheader("🧪 Prediction Result")
 
             # Color-coded risk badge
-            if proba >= 0.7:
+        if proba >= 0.7:
                 risk_color = "🔴 High Risk"
-            elif proba >= 0.4:
+        elif proba >= 0.4:
                 risk_color = "🟠 Moderate Risk"
-            else:
+        else:
                 risk_color = "🟢 Low Risk"
 
             st.write(f"**Risk Level:** {risk_color}")
