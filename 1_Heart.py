@@ -167,7 +167,7 @@ if submitted:
                 plt.savefig("risk_chart.png")
                 plt.close()
 
-            generate_chart(proba)
+        generate_chart(proba)
 
             # Generate PDF
             pdf = FPDF()
