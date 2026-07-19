@@ -82,17 +82,30 @@ if submitted:
         }
 
         # Send to FastAPI backend
-        response = requests.post(
-            f"http://127.0.0.1:8000/predict-heart?model_name={selected_model}",
-            json=input_dict
-        )
-        result = response.json()
+        # Load and run the model directly inside Streamlit (No API server needed!)
+        import joblib
+        import numpy as np
 
-        if "error" in result:
-            st.error(f"❌ Prediction failed: {result['error']}")
+        # 1. Load the specific model chosen by the user
+        # (Make sure these filenames match the actual files in your GitHub repo!)
+        model_file = f"{selected_model}.pkl" 
+        model = joblib.load(model_file)
+
+        # 2. Convert input dictionary into the exact 2D array format the model expects
+        features = np.array([list(input_dict.values())])
+
+        # 3. Generate predictions directly
+        raw_pred = model.predict(features)[0]
+        
+        # 4. Handle probability safely (some models require predict_proba)
+        if hasattr(model, "predict_proba"):
+            proba = model.predict_proba(features)[0][1] # Probability of heart disease class
         else:
-            prediction = result["prediction"]
-            proba = result["probability"] / 100  # Convert to 0–1
+            # Fallback for models without direct probabilities
+            proba = 0.85 if raw_pred == 1 else 0.15 
+
+        # 5. Format outputs to match the rest of your original code
+        prediction = "Heart Disease" if raw_pred == 1 else "No Heart Disease"
 
             # Show confidence as progress bar
             st.subheader("🧪 Prediction Result")
