@@ -170,26 +170,26 @@ if submitted:
         generate_chart(proba)
 
             # Generate PDF
-            pdf = FPDF()
-            pdf.add_page()
-            pdf.set_font("Arial", 'B', 16)
-            pdf.cell(0, 10, "Heart Disease Report", ln=True, align="C")
-            pdf.ln(10)
-            pdf.set_font("Arial", '', 12)
-            for k, v in input_dict.items():
-                pdf.cell(0, 10, f"{k.capitalize()}: {v}", ln=True)
-            pdf.ln(5)
-            pdf.cell(0, 10, f"Model Used: {model_option}", ln=True)
-            pdf.multi_cell(0, 10, f"Prediction: You are predicted to {'NOT ' if prediction == 'No Heart Disease' else ''}have heart disease with {proba*100:.2f}% confidence.", border=1)
-            pdf.image("risk_chart.png", x=10, w=pdf.w - 20)
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("Arial", 'B', 16)
+        pdf.cell(0, 10, "Heart Disease Report", ln=True, align="C")
+        pdf.ln(10)
+        pdf.set_font("Arial", '', 12)
+        for k, v in input_dict.items():
+            pdf.cell(0, 10, f"{k.capitalize()}: {v}", ln=True)
+        pdf.ln(5)
+        pdf.cell(0, 10, f"Model Used: {model_option}", ln=True)
+        pdf.multi_cell(0, 10, f"Prediction: You are predicted to {'NOT ' if prediction == 'No Heart Disease' else ''}have heart disease with {proba*100:.2f}% confidence.", border=1)
+        pdf.image("risk_chart.png", x=10, w=pdf.w - 20)
 
-            filename = f"heart_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-            filepath = os.path.join("reports", filename)
-            os.makedirs("reports", exist_ok=True)
-            pdf.output(filepath)
+        filename = f"heart_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        filepath = os.path.join("reports", filename)
+        os.makedirs("reports", exist_ok=True)
+        pdf.output(filepath)
 
-            with open(filepath, "rb") as f:
-                st.download_button("📄 Download PDF Report", f, file_name=filename, mime="application/pdf")
+        with open(filepath, "rb") as f:
+            st.download_button("📄 Download PDF Report", f, file_name=filename, mime="application/pdf")
 
         
 
