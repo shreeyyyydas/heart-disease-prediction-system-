@@ -136,26 +136,26 @@ if submitted:
                 risk_color = "🟢 Low Risk"
 
         st.write(f"**Risk Level:** {risk_color}")
-            st.progress(proba)
+        st.progress(proba)
 
-            st.info(f"🧠 Model Used: {model_option}")
+        st.info(f"🧠 Model Used: {model_option}")
             # Show prediction
-            if prediction == "Heart Disease":
-                st.error(f"💔 Likely to HAVE heart disease. (Confidence: {proba*100:.2f}%)")
-            else:
-                st.success(f"💚 NOT likely to have heart disease. (Confidence: {proba*100:.2f}%)")
-                st.balloons()
+        if prediction == "Heart Disease":
+            st.error(f"💔 Likely to HAVE heart disease. (Confidence: {proba*100:.2f}%)")
+        else:
+            st.success(f"💚 NOT likely to have heart disease. (Confidence: {proba*100:.2f}%)")
+            st.balloons()
 
-            st.markdown("---")
-            st.subheader("ℹ️ About This Result")
-            st.markdown("""
+        st.markdown("---")
+        st.subheader("ℹ️ About This Result")
+        st.markdown("""
             The prediction is based on the input parameters you provided.  
             It uses a trained **machine learning model** to estimate your **likelihood of having heart disease**.  
             Interpret the result with care, and consult a healthcare professional if needed.
             """)
 
             # Generate chart
-            def generate_chart(p):
+        def generate_chart(p):
                 fig, ax = plt.subplots(figsize=(5, 1))
                 ax.barh(["Risk"], [p * 100], color='red' if p > 0.7 else 'orange' if p > 0.4 else 'green')
                 ax.set_xlim(0, 100)
