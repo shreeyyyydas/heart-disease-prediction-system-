@@ -135,7 +135,7 @@ if submitted:
         else:
                 risk_color = "🟢 Low Risk"
 
-            st.write(f"**Risk Level:** {risk_color}")
+        st.write(f"**Risk Level:** {risk_color}")
             st.progress(proba)
 
             st.info(f"🧠 Model Used: {model_option}")
