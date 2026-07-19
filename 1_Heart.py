@@ -2,7 +2,6 @@ import os
 from datetime import datetime
 import pandas as pd
 import streamlit as st
-import requests
 import matplotlib.pyplot as plt
 from fpdf import FPDF
 import joblib
@@ -88,7 +87,7 @@ if submitted:
         available_files = glob.glob("*.pkl") + glob.glob("*.joblib") + glob.glob("model/*.pkl") + glob.glob("model/*.joblib")
         model_files = [f for f in available_files if "scaler" not in f.lower() and "encoder" not in f.lower()]
         
-        # 2. Match selected model to available files
+        # 2. Match selected model
         model_file = None
         search_term = selected_model.lower().replace("_", "")
 
@@ -101,48 +100,54 @@ if submitted:
             model_file = model_files[0]
             
         if not model_file:
-            raise FileNotFoundError("Could not find any .pkl or .joblib model files in your project folder.")
+            raise FileNotFoundError("Could not find any model files in your project folder.")
 
         # 3. Load model
         model = joblib.load(model_file)
 
-        # 4. Create base DataFrame
-        raw_df = pd.DataFrame([input_dict])
-
-        # 5. One-Hot Encoding transformation
-        categorical_cols = ['cp', 'restecg', 'slope', 'ca', 'thal']
-        encoded_df = pd.get_dummies(raw_df, columns=categorical_cols, dtype=int)
-
-        # 6. Align columns strictly with what the model expects
+        # 4. Handle Features alignment safely
         if hasattr(model, "feature_names_in_"):
-            expected_cols = model.feature_names_in_
+            expected_cols = list(model.feature_names_in_)
             
-            # Match columns regardless of case
-            col_map = {}
-            for exp in expected_cols:
-                for cur in encoded_df.columns:
-                    if exp.lower() == cur.lower():
-                        col_map[cur] = exp
+            # Construct a DataFrame with exact column names expected by model
+            features_df = pd.DataFrame(0, index=[0], columns=expected_cols)
+            
+            # Fill numerical / basic binary values
+            for col in ['age', 'sex', 'trestbps', 'chol', 'fbs', 'thalach', 'exang', 'oldpeak']:
+                for exp in expected_cols:
+                    if exp.lower() == col:
+                        features_df[exp] = input_dict[col]
 
-            encoded_df = encoded_df.rename(columns=col_map)
+            # Fill categorical dummy variables if model used one-hot encoding
+            categorical_vals = {
+                'cp': input_dict['cp'],
+                'restecg': input_dict['restecg'],
+                'slope': input_dict['slope'],
+                'ca': input_dict['ca'],
+                'thal': input_dict['thal']
+            }
 
-            # Fill missing dummy columns with 0
-            for c in expected_cols:
-                if c not in encoded_df.columns:
-                    encoded_df[c] = 0
+            for cat, val in categorical_vals.items():
+                for exp in expected_cols:
+                    # Matches ca_0, ca_1, cp_0, slope_1, etc.
+                    if exp.lower().startswith(f"{cat}_") or exp.lower().startswith(f"{cat}."):
+                        suffix = exp.lower().replace(f"{cat}_", "").replace(f"{cat}.", "")
+                        if suffix.isdigit() and int(suffix) == val:
+                            features_df[exp] = 1
 
-            # Reorder columns to match exact fit order
-            features_for_pred = encoded_df[expected_cols]
+            # Convert to NumPy array to bypass strict Scikit-Learn feature name validation checks
+            features_for_pred = features_df.values
         else:
-            features_for_pred = encoded_df
+            # Fallback for models expecting simple array format
+            features_for_pred = np.array([list(input_dict.values())])
 
-        # 7. Check for scaler
+        # 5. Check and apply scaler if available
         scaler_files = glob.glob("*scaler*.pkl") + glob.glob("*scaler*.joblib") + glob.glob("model/*scaler*.pkl")
         if scaler_files:
             scaler = joblib.load(scaler_files[0])
             features_for_pred = scaler.transform(features_for_pred)
 
-        # 8. Make prediction
+        # 6. Predict
         raw_pred = model.predict(features_for_pred)[0]
 
         if hasattr(model, "predict_proba"):
@@ -156,7 +161,7 @@ if submitted:
         else:
             proba = 0.85 if raw_pred == 1 else 0.15
 
-        # 9. Output result
+        # 7. Output result
         prediction = "Heart Disease" if raw_pred == 1 else "No Heart Disease"
 
         st.subheader("🧪 Prediction Result")
