@@ -86,20 +86,17 @@ if submitted:
 
         # 1. Scan directory for matching model files (.pkl or .joblib)
         available_files = glob.glob("*.pkl") + glob.glob("*.joblib") + glob.glob("model/*.pkl") + glob.glob("model/*.joblib")
-        
-        # Filter out scaler files from model selection
-        model_files = [f for f in available_files if "scaler" not in f.lower()]
+        model_files = [f for f in available_files if "scaler" not in f.lower() and "encoder" not in f.lower()]
         
         # 2. Match selected model to available files
         model_file = None
-        search_term = selected_model.lower().replace("_", "") # e.g., 'randomforest', 'logistic', 'svm'
+        search_term = selected_model.lower().replace("_", "")
 
         for f in model_files:
             if search_term in f.lower().replace("-", "").replace("_", ""):
                 model_file = f
                 break
         
-        # Fallback: pick first available non-scaler model if explicit match fails
         if not model_file and model_files:
             model_file = model_files[0]
             
@@ -112,28 +109,42 @@ if submitted:
         # 4. Format inputs into a pandas DataFrame
         features = pd.DataFrame([input_dict])
 
-        # 5. Check and load Scaler if one exists in the directory
-        scaler_files = glob.glob("*scaler*.pkl") + glob.glob("*scaler*.joblib") + glob.glob("model/*scaler*.pkl") + glob.glob("model/*scaler*.joblib")
+        # 5. Smart feature name mapping (Fixes feature name unseen error)
+        if hasattr(model, "feature_names_in_"):
+            expected_cols = model.feature_names_in_
+            
+            # Map column names regardless of case (e.g., 'cp' -> 'CP' or 'Cp')
+            col_map = {}
+            for exp in expected_cols:
+                for cur in features.columns:
+                    if exp.lower() == cur.lower():
+                        col_map[cur] = exp
+
+            features = features.rename(columns=col_map)
+
+            # Fill missing columns if model expects one-hot encoded variables
+            missing_cols = set(expected_cols) - set(features.columns)
+            for c in missing_cols:
+                features[c] = 0
+
+            # Reorder columns to match fit order strictly
+            features = features[expected_cols]
+
+        # 6. Check for scaler
+        scaler_files = glob.glob("*scaler*.pkl") + glob.glob("*scaler*.joblib") + glob.glob("model/*scaler*.pkl")
         if scaler_files:
             scaler = joblib.load(scaler_files[0])
             features_for_pred = scaler.transform(features)
         else:
-            # Handle model feature alignment if one-hot encoding was used without a separate saved scaler
-            if hasattr(model, "feature_names_in_"):
-                missing_cols = set(model.feature_names_in_) - set(features.columns)
-                for c in missing_cols:
-                    features[c] = 0
-                features = features[model.feature_names_in_]
             features_for_pred = features
 
-        # 6. Make prediction
+        # 7. Make prediction
         raw_pred = model.predict(features_for_pred)[0]
 
         if hasattr(model, "predict_proba"):
             raw_probs = model.predict_proba(features_for_pred)[0]
             raw_classes = getattr(model, "classes_", [0, 1])
             
-            # Match probability for class 1 (Heart Disease)
             if list(raw_classes) == [1, 0]:
                 proba = float(raw_probs[0])
             else:
@@ -141,13 +152,11 @@ if submitted:
         else:
             proba = 0.85 if raw_pred == 1 else 0.15
 
-        # 7. Final result output
+        # 8. Final result output
         prediction = "Heart Disease" if raw_pred == 1 else "No Heart Disease"
 
-        # Show confidence as progress bar
         st.subheader("🧪 Prediction Result")
 
-        # Color-coded risk badge
         if proba >= 0.7:
             risk_color = "🔴 High Risk"
         elif proba >= 0.4:
@@ -160,7 +169,6 @@ if submitted:
 
         st.info(f"🧠 Model Used: {model_option}")
         
-        # Show prediction
         if prediction == "Heart Disease":
             st.error(f"💔 Likely to HAVE heart disease. (Confidence: {proba*100:.2f}%)")
         else:
