@@ -10,7 +10,7 @@ le_smoking = joblib.load("le_smoking.joblib")
 le_alcohol = joblib.load("le_alcohol.joblib")
 
 st.title("🏋️ Fitness Prediction")
-st.markdown("###  Please enter your health and lifestyle details")
+st.markdown("### Please enter your health and lifestyle details")
 
 # User input fields
 age = st.number_input("🎂 Age", min_value=10, max_value=100, step=1)
@@ -53,7 +53,7 @@ if st.button("🔍 Check Fitness Status"):
         conn = sqlite3.connect("patients_data.db")
         cursor = conn.cursor()
         
-        # 1. Correctly indented and matching all columns from the form fields
+        # Create table if missing
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS fitness_patients (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -70,7 +70,7 @@ if st.button("🔍 Check Fitness Status"):
         """)
         conn.commit()
 
-        # 2. Insert the records into the database smoothly
+        # Insert record
         cursor.execute("""
             INSERT INTO fitness_patients 
             (age, weight, height, exercise_days, sleep_hours, diet, smoking, alcohol, prediction)
@@ -81,4 +81,4 @@ if st.button("🔍 Check Fitness Status"):
         
         st.info("📁 Your data has been saved successfully.")
     except Exception as e:
-        st.warning(f"⚠️ Failed to save data: {e}") save data: {e}")
+        st.warning(f"⚠️ Failed to save data: {e}")
