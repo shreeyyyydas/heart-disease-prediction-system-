@@ -109,10 +109,18 @@ if submitted:
         # 3. Load the detected model file
         model = joblib.load(model_file)
 
-        # 4. Convert input dictionary into the 2D array format the model expects
+       # 4. Convert input dictionary into the initial 2D array format
         features = np.array([list(input_dict.values())])
 
-        # 5. Generate predictions directly
+        # 5. Dynamic feature alignment for models expecting encoded features (like 27 inputs)
+        expected_features = model.n_features_in_
+        if features.shape[1] < expected_features:
+            # Pad the remaining features with 0s to match the training shape (e.g., 27)
+            padded_features = np.zeros((1, expected_features))
+            padded_features[0, :features.shape[1]] = features[0]
+            features = padded_features
+
+        # 6. Generate predictions directly
         raw_pred = model.predict(features)[0]
         
         # 6. Handle probability safely (fallback if model doesn't support predict_proba)
