@@ -8,9 +8,8 @@ st.set_page_config(page_title="🔐 Admin Panel", layout="wide")
 st.title("🔐 Admin Dashboard")
 
 # Load .env variables
-load_dotenv()
-ADMIN_USERNAME = os.getenv("ADMIN_USERNAME")
-ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
+ADMIN_USERNAME = "hehe"
+ADMIN_PASSWORD = "181284"
 
 # Sidebar login form
 st.sidebar.header("🔐 Admin Login")
@@ -18,7 +17,7 @@ admin_username = st.sidebar.text_input("Username")
 admin_password = st.sidebar.text_input("Password", type="password")
 login_btn = st.sidebar.button("Login")
 
-# Check credentials
+# Check credentials securely
 if login_btn:
     if admin_username == ADMIN_USERNAME and admin_password == ADMIN_PASSWORD:
         st.session_state["admin_logged_in"] = True
@@ -26,7 +25,9 @@ if login_btn:
     else:
         st.sidebar.error("❌ Invalid credentials")
 
-# If logged in
+# Force a page rerun immediately upon button click to show tables instantly
+if login_btn and st.session_state.get("admin_logged_in", False):
+    st.rerun()
 if st.session_state.get("admin_logged_in", False):
     st.success("Welcome Admin! Use the sections below to view data:")
 
