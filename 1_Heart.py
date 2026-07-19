@@ -87,18 +87,21 @@ if submitted:
         # 1. Scan directory for matching model files (.pkl or .joblib)
         available_files = glob.glob("*.pkl") + glob.glob("*.joblib") + glob.glob("model/*.pkl") + glob.glob("model/*.joblib")
         
+        # Filter out scaler files from model selection
+        model_files = [f for f in available_files if "scaler" not in f.lower()]
+        
         # 2. Match selected model to available files
         model_file = None
         search_term = selected_model.lower().replace("_", "") # e.g., 'randomforest', 'logistic', 'svm'
 
-        for f in available_files:
+        for f in model_files:
             if search_term in f.lower().replace("-", "").replace("_", ""):
                 model_file = f
                 break
         
-        # Fallback: pick first available model if explicit match fails
-        if not model_file and available_files:
-            model_file = available_files[0]
+        # Fallback: pick first available non-scaler model if explicit match fails
+        if not model_file and model_files:
+            model_file = model_files[0]
             
         if not model_file:
             raise FileNotFoundError("Could not find any .pkl or .joblib model files in your project folder.")
@@ -106,30 +109,31 @@ if submitted:
         # 3. Load model
         model = joblib.load(model_file)
 
-        # 4. Format inputs into a pandas DataFrame (preserves feature names for accuracy)
+        # 4. Format inputs into a pandas DataFrame
         features = pd.DataFrame([input_dict])
 
-        # 5. Dynamic alignment if model expects encoded feature columns
-        if hasattr(model, "feature_names_in_"):
-            missing_cols = set(model.feature_names_in_) - set(features.columns)
-            for c in missing_cols:
-                features[c] = 0
-            features = features[model.feature_names_in_]
+        # 5. Check and load Scaler if one exists in the directory
+        scaler_files = glob.glob("*scaler*.pkl") + glob.glob("*scaler*.joblib") + glob.glob("model/*scaler*.pkl") + glob.glob("model/*scaler*.joblib")
+        if scaler_files:
+            scaler = joblib.load(scaler_files[0])
+            features_for_pred = scaler.transform(features)
+        else:
+            # Handle model feature alignment if one-hot encoding was used without a separate saved scaler
+            if hasattr(model, "feature_names_in_"):
+                missing_cols = set(model.feature_names_in_) - set(features.columns)
+                for c in missing_cols:
+                    features[c] = 0
+                features = features[model.feature_names_in_]
+            features_for_pred = features
 
         # 6. Make prediction
-        raw_pred = model.predict(features)[0]
+        raw_pred = model.predict(features_for_pred)[0]
 
-        # Debugging Output to pinpoint the issue
-        raw_classes = getattr(model, "classes_", "No classes attribute")
-        st.write(f"🔍 **Debug Info - Raw Prediction:** `{raw_pred}`")
-        st.write(f"🔍 **Debug Info - Model Classes:** `{raw_classes}`")
         if hasattr(model, "predict_proba"):
-            raw_probs = model.predict_proba(features)[0]
-            st.write(f"🔍 **Debug Info - Raw Probabilities:** `{raw_probs}`")
-
-        # Handle class mapping accurately
-        if hasattr(model, "predict_proba"):
-            # Check if class 1 is at index 1 or index 0
+            raw_probs = model.predict_proba(features_for_pred)[0]
+            raw_classes = getattr(model, "classes_", [0, 1])
+            
+            # Match probability for class 1 (Heart Disease)
             if list(raw_classes) == [1, 0]:
                 proba = float(raw_probs[0])
             else:
@@ -137,6 +141,7 @@ if submitted:
         else:
             proba = 0.85 if raw_pred == 1 else 0.15
 
+        # 7. Final result output
         prediction = "Heart Disease" if raw_pred == 1 else "No Heart Disease"
 
         # Show confidence as progress bar
